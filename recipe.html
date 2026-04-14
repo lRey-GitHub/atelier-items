@@ -13,7 +13,6 @@
       --text: #20253a;
       --muted: #66708a;
       --accent: #4f46e5;
-      --accent-soft: #eef0ff;
       --chip: #f1f3f9;
       --good: #0f766e;
       --danger: #b42318;
@@ -121,7 +120,7 @@
     .recipe-item:hover { background: #fafbff; }
 
     .recipe-item.active {
-      background: var(--accent-soft);
+      background: #eef0ff;
       border-left: 4px solid var(--accent);
       padding-left: 12px;
     }
@@ -151,6 +150,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      align-items: center;
     }
 
     .chip {
@@ -164,6 +164,19 @@
       font-size: 15px;
       line-height: 1;
       white-space: nowrap;
+    }
+
+    .trait-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .trait-chip {
+      padding: 0 6px;
+      border-radius: 8px;
+      cursor: help;
     }
 
     .selected-chip {
@@ -198,6 +211,16 @@
       align-items: flex-start;
     }
 
+    .detail-name {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0 0 8px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     .quality-display {
       text-align: right;
       min-width: 120px;
@@ -214,16 +237,6 @@
       font-weight: 800;
       color: var(--accent);
       line-height: 1;
-    }
-
-    .detail-name {
-      font-size: 24px;
-      font-weight: 800;
-      margin: 0 0 8px;
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
     }
 
     .detail-section { margin-top: 20px; }
@@ -345,6 +358,34 @@
       background: transparent;
     }
 
+    .tooltip {
+      position: fixed;
+      z-index: 1000;
+      max-width: 360px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      pointer-events: none;
+      display: none;
+      white-space: normal;
+    }
+
+    .tooltip-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .tooltip-category {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
     .empty, .loading, .error {
       padding: 18px;
       color: var(--muted);
@@ -384,7 +425,7 @@
       <section class="panel">
         <div class="panel-header">
           <h2 class="panel-title">レシピ詳細</h2>
-          <div class="panel-sub">候補行をクリックして素材を追加します。選択した素材の品質平均を完成品質として表示します。</div>
+          <div class="panel-sub">候補行をクリックして素材を追加します。特性にマウスオーバーすると説明が表示されます。</div>
         </div>
         <div id="recipeDetail" class="recipe-detail">
           <div class="loading">データを読み込んでいます...</div>
@@ -393,14 +434,19 @@
     </div>
   </div>
 
+  <div id="tooltip" class="tooltip"></div>
+
   <script>
     const MATERIAL_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
     const MATERIAL_SHEET_NAME = '素材';
     const RECIPE_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
     const RECIPE_SHEET_NAME = 'レシピ';
+    const TRAIT_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
+    const TRAIT_SHEET_NAME = '特性';
 
     const MATERIAL_URL = `https://opensheet.elk.sh/${MATERIAL_SHEET_ID}/${encodeURIComponent(MATERIAL_SHEET_NAME)}`;
     const RECIPE_URL = `https://opensheet.elk.sh/${RECIPE_SHEET_ID}/${encodeURIComponent(RECIPE_SHEET_NAME)}`;
+    const TRAIT_URL = `https://opensheet.elk.sh/${TRAIT_SHEET_ID}/${encodeURIComponent(TRAIT_SHEET_NAME)}`;
 
     const state = {
       materials: [],
@@ -408,13 +454,15 @@
       filteredRecipes: [],
       selectedRecipeIndex: 0,
       recipeSearch: '',
-      selectedMaterials: {}
+      selectedMaterials: {},
+      traitMap: {}
     };
 
     const els = {
       recipeSearch: document.getElementById('recipeSearch'),
       recipeList: document.getElementById('recipeList'),
-      recipeDetail: document.getElementById('recipeDetail')
+      recipeDetail: document.getElementById('recipeDetail'),
+      tooltip: document.getElementById('tooltip')
     };
 
     function normalizeText(value) {
@@ -490,6 +538,14 @@
         manifestValue: toNumber(row['発現値']),
         notes: normalizeText(row['備考']),
         slots
+      };
+    }
+
+    function parseTrait(row) {
+      return {
+        name: normalizeText(row['特性名']),
+        category: normalizeText(row['カテゴリ']),
+        effect: normalizeText(row['効果'])
       };
     }
 
@@ -577,14 +633,26 @@
       return recipe.slots.some(slot => getCandidates(slot).length === 0);
     }
 
-    function renderChips(values) {
+    function renderSimpleChips(values) {
       if (!values.length) return '';
       return values.map(v => `<span class="chip">${escapeHtml(v)}</span>`).join('');
     }
 
-    function renderRecipeTraitChip(recipe) {
+    function renderTraitChips(values) {
+      if (!values.length) return '';
+      return values.map(raw => {
+        const value = raw.trim();
+        const trait = state.traitMap[value] || {};
+        const category = trait.category || '';
+        const effect = trait.effect || '';
+        return `<span class="chip trait-chip" data-trait-name="${escapeHtml(value)}" data-trait-category="${escapeHtml(category)}" data-trait-effect="${escapeHtml(effect)}">${escapeHtml(value)}</span>`;
+      }).join('');
+    }
+
+    function renderRecipeTraitGroup(recipe) {
       if (!recipe.traits.length) return '';
-      return `<span class="chip">特性:${escapeHtml(recipe.traits.join(' / '))}</span>`;
+      const cleaned = recipe.traits.map(v => v.trim()).filter(Boolean);
+      return `<span class="chip"><span>発現特性:</span><span class="trait-group">${renderTraitChips(cleaned)}</span></span>`;
     }
 
     function renderSelectedChips(recipe, slot) {
@@ -596,13 +664,51 @@
       return selectedKeys.map((key, index) => {
         const material = getMaterialByKey(key);
         if (!material) return '';
-        return `
-          <span class="chip selected-chip">
-            ${escapeHtml(material.name)} / 品質 ${material.quality}
-            <button type="button" class="chip-remove" data-slot-key="${escapeHtml(getSlotKey(recipe, slot))}" data-index="${index}">×</button>
-          </span>
-        `;
+        return `<span class="chip selected-chip">${escapeHtml(material.name)} / 品質 ${material.quality}<button type="button" class="chip-remove" data-slot-key="${escapeHtml(getSlotKey(recipe, slot))}" data-index="${index}">×</button></span>`;
       }).join('');
+    }
+
+    function showTooltip(event) {
+      const target = event.currentTarget;
+      const name = target.dataset.traitName || '';
+      const category = target.dataset.traitCategory || '';
+      const effect = target.dataset.traitEffect || '説明がありません。';
+
+      els.tooltip.innerHTML = `<div class="tooltip-title">${escapeHtml(name)}</div>${category ? `<div class="tooltip-category">カテゴリ: ${escapeHtml(category)}</div>` : ''}<div>${escapeHtml(effect)}</div>`;
+      els.tooltip.style.display = 'block';
+      moveTooltip(event);
+    }
+
+    function moveTooltip(event) {
+      if (els.tooltip.style.display !== 'block') return;
+      const offset = 14;
+      const rect = els.tooltip.getBoundingClientRect();
+      let left = event.clientX + offset;
+      let top = event.clientY + offset;
+
+      if (left + rect.width > window.innerWidth - 12) {
+        left = window.innerWidth - rect.width - 12;
+      }
+      if (top + rect.height > window.innerHeight - 12) {
+        top = event.clientY - rect.height - offset;
+      }
+      if (top < 12) top = 12;
+      if (left < 12) left = 12;
+
+      els.tooltip.style.left = `${left}px`;
+      els.tooltip.style.top = `${top}px`;
+    }
+
+    function hideTooltip() {
+      els.tooltip.style.display = 'none';
+    }
+
+    function attachTooltipEvents() {
+      document.querySelectorAll('.trait-chip').forEach(chip => {
+        chip.addEventListener('mouseenter', showTooltip);
+        chip.addEventListener('mousemove', moveTooltip);
+        chip.addEventListener('mouseleave', hideTooltip);
+      });
     }
 
     function renderRecipeList() {
@@ -614,23 +720,9 @@
       els.recipeList.innerHTML = state.filteredRecipes.map((recipe, index) => {
         const isActive = index === state.selectedRecipeIndex;
         const shortage = recipeHasShortage(recipe);
-        const className = ['recipe-item', isActive ? 'active' : '', shortage ? 'recipe-shortage' : '']
-          .filter(Boolean)
-          .join(' ');
+        const className = ['recipe-item', isActive ? 'active' : '', shortage ? 'recipe-shortage' : ''].filter(Boolean).join(' ');
 
-        return `
-          <div class="${className}" data-index="${index}">
-            <div class="recipe-name">
-              ${escapeHtml(recipe.name)}
-              ${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}
-            </div>
-            <div class="meta-row">
-              ${recipe.difficulty ? `<span class="chip">難易度 ${recipe.difficulty}</span>` : ''}
-              ${recipe.craftCount ? `<span class="chip">作成数 ${recipe.craftCount}</span>` : ''}
-              ${shortage ? '<span class="chip">候補不足</span>' : ''}
-            </div>
-          </div>
-        `;
+        return `<div class="${className}" data-index="${index}"><div class="recipe-name">${escapeHtml(recipe.name)}${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}</div><div class="meta-row">${recipe.difficulty ? `<span class="chip">難易度 ${recipe.difficulty}</span>` : ''}${recipe.craftCount ? `<span class="chip">作成数 ${recipe.craftCount}</span>` : ''}${shortage ? '<span class="chip">候補不足</span>' : ''}</div></div>`;
       }).join('');
 
       document.querySelectorAll('.recipe-item').forEach(item => {
@@ -665,93 +757,25 @@
           const rowClass = ['candidate-row', disabled ? 'disabled' : ''].filter(Boolean).join(' ');
           const usedCount = getUsedCountForMaterial(recipe, candidate.key);
 
-          return `
-            <tr class="${rowClass}" data-slot-key="${escapeHtml(getSlotKey(recipe, slot))}" data-material-key="${escapeHtml(candidate.key)}">
-              <td>${escapeHtml(candidate.name)}</td>
-              <td>${escapeHtml(candidate.color || '-')}</td>
-              <td>${escapeHtml(candidate.rank || '-')}</td>
-              <td>${candidate.quality}</td>
-              <td>${usedCount} / ${candidate.count}</td>
-              <td>${candidate.categories.length ? renderChips(candidate.categories) : '-'}</td>
-              <td>${candidate.traits.length ? renderChips(candidate.traits) : '-'}</td>
-            </tr>
-          `;
+          return `<tr class="${rowClass}" data-slot-key="${escapeHtml(getSlotKey(recipe, slot))}" data-material-key="${escapeHtml(candidate.key)}"><td>${escapeHtml(candidate.name)}</td><td>${escapeHtml(candidate.color || '-')}</td><td>${escapeHtml(candidate.rank || '-')}</td><td>${candidate.quality}</td><td>${usedCount} / ${candidate.count}</td><td>${candidate.categories.length ? renderSimpleChips(candidate.categories) : '-'}</td><td>${candidate.traits.length ? renderTraitChips(candidate.traits) : '-'}</td></tr>`;
         }).join('');
 
-        const slotCardClass = ['slot-card', slotShortage ? 'slot-shortage' : '', slotComplete ? 'slot-complete' : '']
-          .filter(Boolean)
-          .join(' ');
+        const slotCardClass = ['slot-card', slotShortage ? 'slot-shortage' : '', slotComplete ? 'slot-complete' : ''].filter(Boolean).join(' ');
 
-        return `
-          <div class="${slotCardClass}">
-            <div class="slot-head">
-              <div>
-                <div class="slot-title">素材枠${slot.slotNo}: ${escapeHtml(slot.requirement)}</div>
-                <div class="slot-desc">必要数 ${slot.requiredCount} / 判定方式: ${slot.type === 'category' ? 'カテゴリ一致' : 'アイテム名一致'}</div>
-              </div>
-              <div class="candidate-meta">選択済み ${selectedKeys.length} / ${slot.requiredCount}</div>
-            </div>
-
-            <div class="selected-area">
-              <div class="selected-title">選択済み素材</div>
-              <div class="meta-row">${renderSelectedChips(recipe, slot)}</div>
-            </div>
-
-            <div class="candidate-list">
-              <table>
-                <thead>
-                  <tr>
-                    <th>アイテム名</th>
-                    <th>色</th>
-                    <th>ランク</th>
-                    <th>品質</th>
-                    <th>使用数 / 所持数</th>
-                    <th>カテゴリ</th>
-                    <th>特性</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows || '<tr><td colspan="7" class="empty">該当素材がありません。</td></tr>'}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
+        return `<div class="${slotCardClass}"><div class="slot-head"><div><div class="slot-title">素材枠${slot.slotNo}: ${escapeHtml(slot.requirement)}</div><div class="slot-desc">必要数 ${slot.requiredCount} / 判定方式: ${slot.type === 'category' ? 'カテゴリ一致' : 'アイテム名一致'}</div></div><div class="candidate-meta">選択済み ${selectedKeys.length} / ${slot.requiredCount}</div></div><div class="selected-area"><div class="selected-title">選択済み素材</div><div class="meta-row">${renderSelectedChips(recipe, slot)}</div></div><div class="candidate-list"><table><thead><tr><th>アイテム名</th><th>色</th><th>ランク</th><th>品質</th><th>使用数 / 所持数</th><th>カテゴリ</th><th>特性</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="empty">該当素材がありません。</td></tr>'}</tbody></table></div></div>`;
       }).join('');
 
       const topChips = [
         recipe.craftCount ? `<span class="chip">作成個数 ${recipe.craftCount}</span>` : '',
         recipe.difficulty ? `<span class="chip">難易度 ${recipe.difficulty}</span>` : '',
-        renderRecipeTraitChip(recipe),
+        renderRecipeTraitGroup(recipe),
         recipe.manifestValue ? `<span class="chip">発現値 ${recipe.manifestValue}</span>` : '',
         `<span class="chip">選択済み ${selectedCount} / ${requiredCount}</span>`
       ].filter(Boolean).join('');
 
-      const qualityDisplay = `<div class="quality-display">
-        <div class="quality-label">完成品質</div>
-        <div class="quality-value">${averageQuality === null ? '-' : averageQuality.toFixed(1)}</div>
-      </div>`;
+      const qualityDisplay = `<div class="quality-display"><div class="quality-label">完成品質</div><div class="quality-value">${averageQuality === null ? '-' : averageQuality.toFixed(1)}</div></div>`;
 
-      els.recipeDetail.innerHTML = `
-        <div class="recipe-top">
-          <div>
-            <h1 class="detail-name">
-              ${escapeHtml(recipe.name)}
-              ${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}
-              ${shortage ? '<span class="chip">候補不足あり</span>' : ''}
-            </h1>
-            <div class="meta-row">${topChips}</div>
-          </div>
-          ${qualityDisplay}
-        </div>
-
-        ${recipe.notes ? `<div class="detail-section"><h2>備考</h2><div>${escapeHtml(recipe.notes)}</div></div>` : ''}
-
-        <div class="detail-section">
-          <h2>素材候補</h2>
-          <div class="slot-grid">${slotHtml || '<div class="empty">素材枠がありません。</div>'}</div>
-        </div>
-      `;
+      els.recipeDetail.innerHTML = `<div class="recipe-top"><div><h1 class="detail-name">${escapeHtml(recipe.name)}${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}${shortage ? '<span class="chip">候補不足あり</span>' : ''}</h1><div class="meta-row">${topChips}</div></div>${qualityDisplay}</div>${recipe.notes ? `<div class="detail-section"><h2>備考</h2><div>${escapeHtml(recipe.notes)}</div></div>` : ''}<div class="detail-section"><h2>素材候補</h2><div class="slot-grid">${slotHtml || '<div class="empty">素材枠がありません。</div>'}</div></div>`;
 
       document.querySelectorAll('.candidate-row').forEach(row => {
         if (row.classList.contains('disabled')) return;
@@ -762,7 +786,6 @@
           const targetMaterial = getMaterialByKey(materialKey);
           if (!targetSlot || !targetMaterial) return;
           if (!canAddMaterial(recipe, targetSlot, targetMaterial)) return;
-
           addMaterialToSlot(recipe, targetSlot, materialKey);
           renderRecipeDetail();
         });
@@ -779,6 +802,8 @@
           renderRecipeDetail();
         });
       });
+
+      attachTooltipEvents();
     }
 
     function applyRecipeSearch() {
@@ -806,13 +831,21 @@
 
     async function initialize() {
       try {
-        const [materialJson, recipeJson] = await Promise.all([
+        const [materialJson, recipeJson, traitJson] = await Promise.all([
           loadJson(MATERIAL_URL),
-          loadJson(RECIPE_URL)
+          loadJson(RECIPE_URL),
+          loadJson(TRAIT_URL)
         ]);
 
         state.materials = materialJson.map(parseMaterial).filter(row => row.name);
         state.recipes = recipeJson.map(parseRecipe).filter(row => row.name);
+        state.traitMap = traitJson
+          .map(parseTrait)
+          .filter(row => row.name)
+          .reduce((acc, row) => {
+            acc[row.name] = row;
+            return acc;
+          }, {});
 
         applyRecipeSearch();
       } catch (error) {
