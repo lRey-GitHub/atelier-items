@@ -144,6 +144,7 @@
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
+      align-items: center;
     }
 
     .chip {
@@ -157,6 +158,38 @@
       font-size: 12px;
       line-height: 1;
       white-space: nowrap;
+    }
+
+    .trait-chip {
+      cursor: help;
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 1000;
+      max-width: 360px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      pointer-events: none;
+      display: none;
+      white-space: normal;
+    }
+
+    .tooltip-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .tooltip-category {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
     }
 
     .loading,
@@ -257,14 +290,17 @@
     </div>
   </div>
 
+  <div id="tooltip" class="tooltip"></div>
+
   <script>
-    // ここを書き換えてください
     const SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
     const SHEET_NAME = '素材';
-    const RANGE = 'A1:H1000';
 
-    // 公開シートを JSON で取得するエンドポイント
+    const TRAIT_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
+    const TRAIT_SHEET_NAME = '特性';
+
     const SHEETS_URL = `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(SHEET_NAME)}`;
+    const TRAIT_URL = `https://opensheet.elk.sh/${TRAIT_SHEET_ID}/${encodeURIComponent(TRAIT_SHEET_NAME)}`;
 
     const state = {
       rows: [],
@@ -276,7 +312,8 @@
         category: '',
         color: '',
         rank: ''
-      }
+      },
+      traitMap: {}
     };
 
     const rankOrder = ['', 'E', 'D', 'C', 'B', 'A', 'S'];
@@ -290,7 +327,8 @@
       tableBody: document.getElementById('tableBody'),
       countInfo: document.getElementById('countInfo'),
       sortInfo: document.getElementById('sortInfo'),
-      sortButtons: Array.from(document.querySelectorAll('[data-sort]'))
+      sortButtons: Array.from(document.querySelectorAll('[data-sort]')),
+      tooltip: document.getElementById('tooltip')
     };
 
     function normalizeText(value) {
@@ -309,6 +347,15 @@
         .filter(Boolean);
     }
 
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
     function parseRow(row) {
       return {
         name: normalizeText(row['アイテム名']),
@@ -319,6 +366,14 @@
         quality: toNumber(row['品質']),
         traits: splitTags(row['特性']),
         count: toNumber(row['個数'])
+      };
+    }
+
+    function parseTraitRow(row) {
+      return {
+        name: normalizeText(row['特性名']),
+        category: normalizeText(row['カテゴリ']),
+        effect: normalizeText(row['効果'])
       };
     }
 
@@ -365,13 +420,72 @@
       return `<div class="chips">${values.map(v => `<span class="chip">${escapeHtml(v)}</span>`).join('')}</div>`;
     }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+    function renderTraitChips(values) {
+      if (!values.length) return '';
+
+      return `<div class="chips">${
+        values.map(raw => {
+          const value = raw.trim();
+          const trait = state.traitMap[value] || {};
+          const category = trait.category || '';
+          const effect = trait.effect || '';
+
+          return `<span
+            class="chip trait-chip"
+            data-trait-name="${escapeHtml(value)}"
+            data-trait-category="${escapeHtml(category)}"
+            data-trait-effect="${escapeHtml(effect)}"
+          >${escapeHtml(value)}</span>`;
+        }).join('')
+      }</div>`;
+    }
+
+    function showTooltip(event) {
+      const target = event.currentTarget;
+      const name = target.dataset.traitName || '';
+      const category = target.dataset.traitCategory || '';
+      const effect = target.dataset.traitEffect || '説明がありません。';
+
+      els.tooltip.innerHTML = `
+        <div class="tooltip-title">${escapeHtml(name)}</div>
+        ${category ? `<div class="tooltip-category">カテゴリ: ${escapeHtml(category)}</div>` : ''}
+        <div>${escapeHtml(effect)}</div>
+      `;
+      els.tooltip.style.display = 'block';
+      moveTooltip(event);
+    }
+
+    function moveTooltip(event) {
+      if (els.tooltip.style.display !== 'block') return;
+
+      const offset = 14;
+      const rect = els.tooltip.getBoundingClientRect();
+      let left = event.clientX + offset;
+      let top = event.clientY + offset;
+
+      if (left + rect.width > window.innerWidth - 12) {
+        left = window.innerWidth - rect.width - 12;
+      }
+      if (top + rect.height > window.innerHeight - 12) {
+        top = event.clientY - rect.height - offset;
+      }
+      if (left < 12) left = 12;
+      if (top < 12) top = 12;
+
+      els.tooltip.style.left = `${left}px`;
+      els.tooltip.style.top = `${top}px`;
+    }
+
+    function hideTooltip() {
+      els.tooltip.style.display = 'none';
+    }
+
+    function attachTooltipEvents() {
+      document.querySelectorAll('.trait-chip').forEach(chip => {
+        chip.addEventListener('mouseenter', showTooltip);
+        chip.addEventListener('mousemove', moveTooltip);
+        chip.addEventListener('mouseleave', hideTooltip);
+      });
     }
 
     function renderTable() {
@@ -388,10 +502,12 @@
           <td>${escapeHtml(row.rank || '-')}</td>
           <td>${renderChips(row.categories)}</td>
           <td>${row.quality}</td>
-          <td>${renderChips(row.traits)}</td>
+          <td>${renderTraitChips(row.traits)}</td>
           <td>${row.count}</td>
         </tr>
       `).join('');
+
+      attachTooltipEvents();
     }
 
     function renderMeta() {
@@ -420,17 +536,32 @@
       populateSelect(els.rankSelect, ranks);
     }
 
+    async function loadJson(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
     async function loadData() {
       try {
-        const response = await fetch(SHEETS_URL);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        const [itemJson, traitJson] = await Promise.all([
+          loadJson(SHEETS_URL),
+          loadJson(TRAIT_URL)
+        ]);
 
-        const json = await response.json();
-        state.rows = json
+        state.rows = itemJson
           .map(parseRow)
           .filter(row => row.name);
+
+        state.traitMap = traitJson
+          .map(parseTraitRow)
+          .filter(row => row.name)
+          .reduce((acc, row) => {
+            acc[row.name] = row;
+            return acc;
+          }, {});
 
         populateFilters(state.rows);
         applyFilters();
