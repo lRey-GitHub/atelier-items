@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>アトリエ卓 アイテム一覧</title>
+  <title>アトリエ卓 レシピ素材選択</title>
   <style>
     :root {
       color-scheme: light;
@@ -13,8 +13,11 @@
       --text: #20253a;
       --muted: #66708a;
       --accent: #4f46e5;
-      --accent-soft: #eef0ff;
       --chip: #f1f3f9;
+      --good: #0f766e;
+      --danger: #b42318;
+      --danger-bg: #fff3f3;
+      --danger-line: #f1a5a5;
       --shadow: 0 8px 24px rgba(18, 28, 45, 0.08);
       --radius: 16px;
     }
@@ -29,14 +32,12 @@
     }
 
     .wrap {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 24px;
     }
 
-    .header {
-      margin-bottom: 20px;
-    }
+    .header { margin-bottom: 20px; }
 
     h1 {
       margin: 0 0 8px;
@@ -49,32 +50,44 @@
       line-height: 1.6;
     }
 
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
+      overflow: hidden;
     }
 
-    .controls {
-      display: grid;
-      grid-template-columns: 1.6fr 1fr 1fr 1fr auto;
-      gap: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      align-items: end;
+    .panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fafbff;
     }
 
-    .field label {
-      display: block;
-      font-size: 12px;
+    .panel-title {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .panel-sub {
+      margin-top: 4px;
       color: var(--muted);
-      margin-bottom: 6px;
+      font-size: 13px;
     }
 
-    .field input,
-    .field select,
-    .field button {
+    .search-box {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    input {
       width: 100%;
       min-height: 42px;
       border: 1px solid var(--line);
@@ -85,83 +98,292 @@
       font-size: 14px;
     }
 
-    .field button {
+    button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
       cursor: pointer;
-      background: var(--accent-soft);
-      border-color: #cfd5ff;
-      color: var(--accent);
-      font-weight: 600;
     }
 
-    .meta {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 0 16px 12px;
-      color: var(--muted);
-      font-size: 13px;
-      flex-wrap: wrap;
-    }
-
-    .table-wrap {
+    .recipe-list {
+      max-height: 72vh;
       overflow: auto;
-      border-top: 1px solid var(--line);
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 980px;
-    }
-
-    th, td {
-      padding: 12px 14px;
+    .recipe-item {
+      padding: 14px 16px;
       border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-      font-size: 14px;
-    }
-
-    th {
-      position: sticky;
-      top: 0;
-      background: #fafbff;
-      z-index: 1;
-      white-space: nowrap;
-    }
-
-    th button {
-      all: unset;
       cursor: pointer;
+    }
+
+    .recipe-item:hover { background: #fafbff; }
+
+    .recipe-item.active {
+      background: #eef0ff;
+      border-left: 4px solid var(--accent);
+      padding-left: 12px;
+    }
+
+    .recipe-item.recipe-shortage {
+      background: #fff1f1;
+    }
+
+    .recipe-item.recipe-shortage:hover {
+      background: #ffe7e7;
+    }
+
+    .recipe-item.recipe-shortage .recipe-name {
+      color: var(--danger);
+    }
+
+    .recipe-name {
       font-weight: 700;
-    }
-
-    tr:hover td {
-      background: #fafbff;
-    }
-
-    .chips {
+      margin-bottom: 6px;
       display: flex;
-      gap: 6px;
+      align-items: center;
       flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
       align-items: center;
     }
 
     .chip {
       display: inline-flex;
       align-items: center;
-      min-height: 24px;
-      padding: 0 8px;
+      min-height: 26px;
+      padding: 0 10px;
       border-radius: 999px;
       background: var(--chip);
       color: #33405f;
-      font-size: 12px;
+      font-size: 15px;
       line-height: 1;
       white-space: nowrap;
     }
 
+    .trait-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
     .trait-chip {
+      padding: 0 6px;
+      border-radius: 8px;
       cursor: help;
+    }
+
+    .selected-chip {
+      gap: 6px;
+      padding-right: 4px;
+      background: #e9edff;
+      color: #26327a;
+      font-size: 13px;
+    }
+
+    .chip-remove {
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(38, 50, 122, 0.12);
+      color: #26327a;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .recipe-detail { padding: 18px; }
+
+    .recipe-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      align-items: flex-start;
+    }
+
+    .detail-name {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0 0 8px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .quality-display {
+      text-align: right;
+      min-width: 140px;
+    }
+
+    .quality-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .quality-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .quality-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .craft-button {
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid #cfd5ff;
+      border-radius: 10px;
+      background: #eef0ff;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .craft-button:hover {
+      background: #e3e7ff;
+    }
+
+    .craft-button.copied {
+      background: #ecfdf3;
+      border-color: #b7e4c7;
+      color: #0f766e;
+    }
+
+    .detail-section { margin-top: 20px; }
+
+    .detail-section h2 {
+      font-size: 18px;
+      margin: 0 0 12px;
+    }
+
+    .slot-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .slot-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .slot-card.slot-shortage {
+      border-color: var(--danger-line);
+      background: var(--danger-bg);
+    }
+
+    .slot-card.slot-shortage .slot-title {
+      color: var(--danger);
+    }
+
+    .slot-card.slot-complete {
+      border-color: #b7d8c0;
+      background: #f6fff8;
+    }
+
+    .slot-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .slot-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .slot-desc {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .candidate-meta {
+      margin-top: 10px;
+      color: var(--good);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .selected-area {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fafbff;
+    }
+
+    .selected-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .candidate-list {
+      margin-top: 12px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #fafbff;
+      white-space: nowrap;
+    }
+
+    tr.candidate-row {
+      cursor: pointer;
+    }
+
+    tr.candidate-row:hover td {
+      background: #f7f9ff;
+    }
+
+    tr.candidate-row.disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    tr.candidate-row.disabled:hover td {
+      background: transparent;
     }
 
     .tooltip {
@@ -192,142 +414,82 @@
       margin-bottom: 6px;
     }
 
-    .loading,
-    .error,
-    .empty {
-      padding: 20px 16px;
+    .empty, .loading, .error {
+      padding: 18px;
       color: var(--muted);
     }
 
-    .error {
-      color: #b42318;
-    }
+    .error { color: var(--danger); }
 
-    @media (max-width: 900px) {
-      .controls {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .wrap {
-        padding: 16px;
-      }
-
-      .controls {
-        grid-template-columns: 1fr;
-      }
-
-      h1 {
-        font-size: 24px;
-      }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; }
+      .recipe-list { max-height: 40vh; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="header">
-      <h1>アトリエ卓 アイテム一覧</h1>
+      <h1>アトリエ卓 レシピ素材選択</h1>
       <div class="sub">
-        Google スプレッドシートの公開データを読み込み、ブラウザ上でソートと絞り込みを行います。
+        レシピを選ぶと、各素材枠に入れられる候補素材を一覧表示します。候補行をクリックすると素材が追加されます。同じ素材を複数回選ぶこともできます。
       </div>
     </div>
 
-    <div class="panel">
-      <div class="controls">
-        <div class="field">
-          <label for="searchInput">名前・特性検索</label>
-          <input id="searchInput" type="text" placeholder="例: 火炎石 / 破壊力増加" />
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">レシピ一覧</h2>
+          <div class="panel-sub">検索で絞り込みできます</div>
         </div>
-        <div class="field">
-          <label for="categorySelect">カテゴリ</label>
-          <select id="categorySelect">
-            <option value="">すべて</option>
-          </select>
+        <div class="search-box">
+          <input id="recipeSearch" type="text" placeholder="例: フラム / ポーション / Bランク" />
         </div>
-        <div class="field">
-          <label for="colorSelect">色</label>
-          <select id="colorSelect">
-            <option value="">すべて</option>
-          </select>
+        <div id="recipeList" class="recipe-list">
+          <div class="loading">レシピを読み込んでいます...</div>
         </div>
-        <div class="field">
-          <label for="rankSelect">ランク</label>
-          <select id="rankSelect">
-            <option value="">すべて</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>&nbsp;</label>
-          <button id="resetButton" type="button">絞り込み解除</button>
-        </div>
-      </div>
+      </section>
 
-      <div class="meta">
-        <div id="countInfo">読込中...</div>
-        <div id="sortInfo">ソート: なし</div>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><button data-sort="name">アイテム名</button></th>
-              <th><button data-sort="price">価格</button></th>
-              <th><button data-sort="color">色</button></th>
-              <th><button data-sort="rank">ランク</button></th>
-              <th>カテゴリ</th>
-              <th><button data-sort="quality">品質</button></th>
-              <th>特性</th>
-              <th><button data-sort="count">個数</button></th>
-            </tr>
-          </thead>
-          <tbody id="tableBody">
-            <tr><td colspan="8" class="loading">データを読み込んでいます...</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">レシピ詳細</h2>
+          <div class="panel-sub">候補行をクリックして素材を追加します。特性にマウスオーバーすると説明が表示されます。</div>
+        </div>
+        <div id="recipeDetail" class="recipe-detail">
+          <div class="loading">データを読み込んでいます...</div>
+        </div>
+      </section>
     </div>
   </div>
 
   <div id="tooltip" class="tooltip"></div>
 
   <script>
-    const SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
-    const SHEET_NAME = '素材';
-
+    const MATERIAL_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
+    const MATERIAL_SHEET_NAME = '素材';
+    const RECIPE_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
+    const RECIPE_SHEET_NAME = 'レシピ';
     const TRAIT_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
     const TRAIT_SHEET_NAME = '特性';
 
-    const SHEETS_URL = `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(SHEET_NAME)}`;
+    const MATERIAL_URL = `https://opensheet.elk.sh/${MATERIAL_SHEET_ID}/${encodeURIComponent(MATERIAL_SHEET_NAME)}`;
+    const RECIPE_URL = `https://opensheet.elk.sh/${RECIPE_SHEET_ID}/${encodeURIComponent(RECIPE_SHEET_NAME)}`;
     const TRAIT_URL = `https://opensheet.elk.sh/${TRAIT_SHEET_ID}/${encodeURIComponent(TRAIT_SHEET_NAME)}`;
 
     const state = {
-      rows: [],
-      filteredRows: [],
-      sortKey: '',
-      sortDir: 'asc',
-      filters: {
-        search: '',
-        category: '',
-        color: '',
-        rank: ''
-      },
+      materials: [],
+      recipes: [],
+      filteredRecipes: [],
+      selectedRecipeIndex: 0,
+      recipeSearch: '',
+      selectedMaterials: {},
       traitMap: {}
     };
 
-    const rankOrder = ['', 'E', 'D', 'C', 'B', 'A', 'S'];
-
     const els = {
-      searchInput: document.getElementById('searchInput'),
-      categorySelect: document.getElementById('categorySelect'),
-      colorSelect: document.getElementById('colorSelect'),
-      rankSelect: document.getElementById('rankSelect'),
-      resetButton: document.getElementById('resetButton'),
-      tableBody: document.getElementById('tableBody'),
-      countInfo: document.getElementById('countInfo'),
-      sortInfo: document.getElementById('sortInfo'),
-      sortButtons: Array.from(document.querySelectorAll('[data-sort]')),
+      recipeSearch: document.getElementById('recipeSearch'),
+      recipeList: document.getElementById('recipeList'),
+      recipeDetail: document.getElementById('recipeDetail'),
       tooltip: document.getElementById('tooltip')
     };
 
@@ -347,6 +509,10 @@
         .filter(Boolean);
     }
 
+    function isCategoryRequirement(value) {
+      return /^〈.+〉$/.test(normalizeText(value));
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll('&', '&amp;')
@@ -356,20 +522,54 @@
         .replaceAll("'", '&#039;');
     }
 
-    function parseRow(row) {
+    function parseMaterial(row) {
+      const name = normalizeText(row['アイテム名']);
+      const color = normalizeText(row['色']);
+      const rank = normalizeText(row['ランク']);
+      const quality = toNumber(row['品質']);
+      const count = toNumber(row['個数']);
+
       return {
-        name: normalizeText(row['アイテム名']),
+        key: [name, color, rank, quality, count].join('||'),
+        name,
         price: toNumber(row['価格']),
-        color: normalizeText(row['色']),
-        rank: normalizeText(row['ランク']).toUpperCase(),
+        color,
+        rank,
         categories: splitTags(row['カテゴリ']),
-        quality: toNumber(row['品質']),
+        quality,
         traits: splitTags(row['特性']),
-        count: toNumber(row['個数'])
+        count
       };
     }
 
-    function parseTraitRow(row) {
+    function parseRecipe(row) {
+      const slots = [];
+      for (let i = 1; i <= 5; i += 1) {
+        const requirement = normalizeText(row[`素材${i}`]);
+        const count = toNumber(row[`個数${i}`]);
+        if (!requirement) continue;
+
+        slots.push({
+          slotNo: i,
+          requirement,
+          requiredCount: count || 1,
+          type: isCategoryRequirement(requirement) ? 'category' : 'name'
+        });
+      }
+
+      return {
+        name: normalizeText(row['アイテム名']),
+        rank: normalizeText(row['ランク']),
+        craftCount: toNumber(row['作成個数']),
+        difficulty: toNumber(row['難易度']),
+        traits: splitTags(row['特性']),
+        manifestValue: toNumber(row['発現値']),
+        notes: normalizeText(row['備考']),
+        slots
+      };
+    }
+
+    function parseTrait(row) {
       return {
         name: normalizeText(row['特性名']),
         category: normalizeText(row['カテゴリ']),
@@ -377,67 +577,182 @@
       };
     }
 
-    function compareValues(a, b, key, dir) {
-      const mul = dir === 'asc' ? 1 : -1;
-
-      if (key === 'rank') {
-        return (rankOrder.indexOf(a.rank) - rankOrder.indexOf(b.rank)) * mul;
-      }
-
-      if (['price', 'quality', 'count'].includes(key)) {
-        return (a[key] - b[key]) * mul;
-      }
-
-      return String(a[key]).localeCompare(String(b[key]), 'ja') * mul;
-    }
-
-    function applyFilters() {
-      const search = state.filters.search.toLowerCase();
-
-      let rows = state.rows.filter(row => {
-        const matchesSearch = !search ||
-          row.name.toLowerCase().includes(search) ||
-          row.traits.some(tag => tag.toLowerCase().includes(search));
-
-        const matchesCategory = !state.filters.category || row.categories.includes(state.filters.category);
-        const matchesColor = !state.filters.color || row.color === state.filters.color;
-        const matchesRank = !state.filters.rank || row.rank === state.filters.rank;
-
-        return matchesSearch && matchesCategory && matchesColor && matchesRank;
+    function getCandidates(slot) {
+      const candidates = state.materials.filter(material => {
+        if (slot.type === 'category') {
+          return material.categories.includes(slot.requirement);
+        }
+        return material.name === slot.requirement;
       });
 
-      if (state.sortKey) {
-        rows = [...rows].sort((a, b) => compareValues(a, b, state.sortKey, state.sortDir));
-      }
-
-      state.filteredRows = rows;
-      renderTable();
-      renderMeta();
+      return [...candidates].sort((a, b) => {
+        if (b.quality !== a.quality) return b.quality - a.quality;
+        if (b.count !== a.count) return b.count - a.count;
+        return a.name.localeCompare(b.name, 'ja');
+      });
     }
 
-    function renderChips(values) {
+    function getRecipeKey(recipe) {
+      return recipe.name;
+    }
+
+    function getSlotKey(recipe, slot) {
+      return `${getRecipeKey(recipe)}::slot${slot.slotNo}`;
+    }
+
+    function getSelectedMaterials(recipe, slot) {
+      return state.selectedMaterials[getSlotKey(recipe, slot)] || [];
+    }
+
+    function getUsedCountForMaterial(recipe, materialKey) {
+      return recipe.slots.reduce((sum, slot) => {
+        return sum + getSelectedMaterials(recipe, slot).filter(key => key === materialKey).length;
+      }, 0);
+    }
+
+    function canAddMaterial(recipe, slot, material) {
+      const selected = getSelectedMaterials(recipe, slot);
+      if (selected.length >= slot.requiredCount) {
+        return false;
+      }
+      const usedCount = getUsedCountForMaterial(recipe, material.key);
+      return usedCount < material.count;
+    }
+
+    function addMaterialToSlot(recipe, slot, materialKey) {
+      const slotKey = getSlotKey(recipe, slot);
+      const current = getSelectedMaterials(recipe, slot);
+      state.selectedMaterials[slotKey] = [...current, materialKey];
+    }
+
+    function removeMaterialFromSlot(recipe, slot, indexToRemove) {
+      const slotKey = getSlotKey(recipe, slot);
+      const current = getSelectedMaterials(recipe, slot);
+      state.selectedMaterials[slotKey] = current.filter((_, index) => index !== indexToRemove);
+    }
+
+    function getMaterialByKey(materialKey) {
+      return state.materials.find(material => material.key === materialKey) || null;
+    }
+
+    function getAllSelectedMaterials(recipe) {
+      return recipe.slots
+        .flatMap(slot => getSelectedMaterials(recipe, slot))
+        .map(getMaterialByKey)
+        .filter(Boolean);
+    }
+
+    function calculateAverageQuality(recipe) {
+      const selected = getAllSelectedMaterials(recipe);
+      if (!selected.length) return null;
+      const total = selected.reduce((sum, material) => sum + material.quality, 0);
+      return total / selected.length;
+    }
+
+    function getSelectedCount(recipe) {
+      return getAllSelectedMaterials(recipe).length;
+    }
+
+    function getRequiredCount(recipe) {
+      return recipe.slots.reduce((sum, slot) => sum + slot.requiredCount, 0);
+    }
+
+    function recipeHasShortage(recipe) {
+      return recipe.slots.some(slot => getCandidates(slot).length === 0);
+    }
+
+    function renderSimpleChips(values) {
       if (!values.length) return '';
-      return `<div class="chips">${values.map(v => `<span class="chip">${escapeHtml(v)}</span>`).join('')}</div>`;
+      return values.map(v => `<span class="chip">${escapeHtml(v)}</span>`).join('');
     }
 
     function renderTraitChips(values) {
       if (!values.length) return '';
+      return values.map(raw => {
+        const value = raw.trim();
+        const trait = state.traitMap[value] || {};
+        const category = trait.category || '';
+        const effect = trait.effect || '';
+        return `<span class="chip trait-chip" data-trait-name="${escapeHtml(value)}" data-trait-category="${escapeHtml(category)}" data-trait-effect="${escapeHtml(effect)}">${escapeHtml(value)}</span>`;
+      }).join('');
+    }
 
-      return `<div class="chips">${
-        values.map(raw => {
-          const value = raw.trim();
-          const trait = state.traitMap[value] || {};
-          const category = trait.category || '';
-          const effect = trait.effect || '';
+    function renderRecipeTraitGroup(recipe) {
+      if (!recipe.traits.length) return '';
+      const cleaned = recipe.traits.map(v => v.trim()).filter(Boolean);
+      return `<span class="chip"><span>発現特性:</span><span class="trait-group">${renderTraitChips(cleaned)}</span></span>`;
+    }
 
-          return `<span
-            class="chip trait-chip"
-            data-trait-name="${escapeHtml(value)}"
-            data-trait-category="${escapeHtml(category)}"
-            data-trait-effect="${escapeHtml(effect)}"
-          >${escapeHtml(value)}</span>`;
-        }).join('')
-      }</div>`;
+    function renderSelectedChips(recipe, slot) {
+      const selectedKeys = getSelectedMaterials(recipe, slot);
+      if (!selectedKeys.length) {
+        return '<div class="empty">まだ選択されていません。</div>';
+      }
+
+      return selectedKeys.map((key, index) => {
+        const material = getMaterialByKey(key);
+        if (!material) return '';
+        return `<span class="chip selected-chip">${escapeHtml(material.name)} / 品質 ${material.quality}<button type="button" class="chip-remove" data-slot-key="${escapeHtml(getSlotKey(recipe, slot))}" data-index="${index}">×</button></span>`;
+      }).join('');
+    }
+
+    function buildSelectedMaterialsText(recipe) {
+      const selected = getAllSelectedMaterials(recipe);
+
+      if (!selected.length) {
+        return `${recipe.name} | 素材なし`;
+      }
+      
+      const grouped = {};
+      selected.forEach(material => {
+        const traitsText = material.traits.length ? material.traits.join(',') : '-';
+        const groupKey = [
+          material.name,
+          material.quality,
+          traitsText
+        ].join('||');
+
+        if (!grouped[groupKey]) {
+          grouped[groupKey] = {
+            name: material.name,
+            quality: material.quality,
+            traitsText,
+            count: 0
+          };
+        }
+
+        grouped[groupKey].count += 1;
+      });
+
+      const materialsText = Object.values(grouped)
+        .map(material => {
+          return `${material.name}(品質${material.quality}/特性:${material.traitsText})x${material.count}`;
+        })
+        .join(' | ');
+
+      const quality = calculateAverageQuality(recipe);
+
+      return `${recipe.name} | 完成品質:${quality === null ? '-' : quality.toFixed(1)} | ${materialsText}`;
+    }
+
+    async function copySelectedMaterials(recipe, buttonEl) {
+      const text = buildSelectedMaterialsText(recipe);
+
+      try {
+        await navigator.clipboard.writeText(text);
+
+        const originalText = buttonEl.textContent;
+        buttonEl.textContent = 'コピーしました';
+        buttonEl.classList.add('copied');
+
+        window.setTimeout(() => {
+          buttonEl.textContent = originalText;
+          buttonEl.classList.remove('copied');
+        }, 1200);
+      } catch (error) {
+        console.error(error);
+        alert('コピーに失敗しました。');
+      }
     }
 
     function showTooltip(event) {
@@ -446,18 +761,13 @@
       const category = target.dataset.traitCategory || '';
       const effect = target.dataset.traitEffect || '説明がありません。';
 
-      els.tooltip.innerHTML = `
-        <div class="tooltip-title">${escapeHtml(name)}</div>
-        ${category ? `<div class="tooltip-category">カテゴリ: ${escapeHtml(category)}</div>` : ''}
-        <div>${escapeHtml(effect)}</div>
-      `;
+      els.tooltip.innerHTML = `<div class="tooltip-title">${escapeHtml(name)}</div>${category ? `<div class="tooltip-category">カテゴリ: ${escapeHtml(category)}</div>` : ''}<div>${escapeHtml(effect)}</div>`;
       els.tooltip.style.display = 'block';
       moveTooltip(event);
     }
 
     function moveTooltip(event) {
       if (els.tooltip.style.display !== 'block') return;
-
       const offset = 14;
       const rect = els.tooltip.getBoundingClientRect();
       let left = event.clientX + offset;
@@ -469,8 +779,8 @@
       if (top + rect.height > window.innerHeight - 12) {
         top = event.clientY - rect.height - offset;
       }
-      if (left < 12) left = 12;
       if (top < 12) top = 12;
+      if (left < 12) left = 12;
 
       els.tooltip.style.left = `${left}px`;
       els.tooltip.style.top = `${top}px`;
@@ -488,52 +798,121 @@
       });
     }
 
-    function renderTable() {
-      if (!state.filteredRows.length) {
-        els.tableBody.innerHTML = '<tr><td colspan="8" class="empty">該当するデータがありません。</td></tr>';
+    function renderRecipeList() {
+      if (!state.filteredRecipes.length) {
+        els.recipeList.innerHTML = '<div class="empty">該当するレシピがありません。</div>';
         return;
       }
 
-      els.tableBody.innerHTML = state.filteredRows.map(row => `
-        <tr>
-          <td>${escapeHtml(row.name)}</td>
-          <td>${row.price}</td>
-          <td>${escapeHtml(row.color || '-')}</td>
-          <td>${escapeHtml(row.rank || '-')}</td>
-          <td>${renderChips(row.categories)}</td>
-          <td>${row.quality}</td>
-          <td>${renderTraitChips(row.traits)}</td>
-          <td>${row.count}</td>
-        </tr>
-      `).join('');
+      els.recipeList.innerHTML = state.filteredRecipes.map((recipe, index) => {
+        const isActive = index === state.selectedRecipeIndex;
+        const shortage = recipeHasShortage(recipe);
+        const className = ['recipe-item', isActive ? 'active' : '', shortage ? 'recipe-shortage' : ''].filter(Boolean).join(' ');
+
+        return `<div class="${className}" data-index="${index}"><div class="recipe-name">${escapeHtml(recipe.name)}${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}</div><div class="meta-row">${recipe.difficulty ? `<span class="chip">難易度 ${recipe.difficulty}</span>` : ''}${recipe.craftCount ? `<span class="chip">作成数 ${recipe.craftCount}</span>` : ''}${shortage ? '<span class="chip">候補不足</span>' : ''}</div></div>`;
+      }).join('');
+
+      document.querySelectorAll('.recipe-item').forEach(item => {
+        item.addEventListener('click', () => {
+          state.selectedRecipeIndex = Number(item.dataset.index);
+          renderRecipeList();
+          renderRecipeDetail();
+        });
+      });
+    }
+
+    function renderRecipeDetail() {
+      const recipe = state.filteredRecipes[state.selectedRecipeIndex];
+      if (!recipe) {
+        els.recipeDetail.innerHTML = '<div class="empty">表示できるレシピがありません。</div>';
+        return;
+      }
+
+      const averageQuality = calculateAverageQuality(recipe);
+      const selectedCount = getSelectedCount(recipe);
+      const requiredCount = getRequiredCount(recipe);
+      const shortage = recipeHasShortage(recipe);
+
+      const slotHtml = recipe.slots.map(slot => {
+        const candidates = getCandidates(slot);
+        const slotShortage = candidates.length === 0;
+        const selectedKeys = getSelectedMaterials(recipe, slot);
+        const slotComplete = selectedKeys.length >= slot.requiredCount;
+
+        const rows = candidates.map(candidate => {
+          const disabled = !canAddMaterial(recipe, slot, candidate);
+          const rowClass = ['candidate-row', disabled ? 'disabled' : ''].filter(Boolean).join(' ');
+          const usedCount = getUsedCountForMaterial(recipe, candidate.key);
+
+          return `<tr class="${rowClass}" data-slot-key="${escapeHtml(getSlotKey(recipe, slot))}" data-material-key="${escapeHtml(candidate.key)}"><td>${escapeHtml(candidate.name)}</td><td>${escapeHtml(candidate.color || '-')}</td><td>${escapeHtml(candidate.rank || '-')}</td><td>${candidate.quality}</td><td>${usedCount} / ${candidate.count}</td><td>${candidate.categories.length ? renderSimpleChips(candidate.categories) : '-'}</td><td>${candidate.traits.length ? renderTraitChips(candidate.traits) : '-'}</td></tr>`;
+        }).join('');
+
+        const slotCardClass = ['slot-card', slotShortage ? 'slot-shortage' : '', slotComplete ? 'slot-complete' : ''].filter(Boolean).join(' ');
+
+        return `<div class="${slotCardClass}"><div class="slot-head"><div><div class="slot-title">素材枠${slot.slotNo}: ${escapeHtml(slot.requirement)}</div><div class="slot-desc">必要数 ${slot.requiredCount} / 判定方式: ${slot.type === 'category' ? 'カテゴリ一致' : 'アイテム名一致'}</div></div><div class="candidate-meta">選択済み ${selectedKeys.length} / ${slot.requiredCount}</div></div><div class="selected-area"><div class="selected-title">選択済み素材</div><div class="meta-row">${renderSelectedChips(recipe, slot)}</div></div><div class="candidate-list"><table><thead><tr><th>アイテム名</th><th>色</th><th>ランク</th><th>品質</th><th>使用数 / 所持数</th><th>カテゴリ</th><th>特性</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="empty">該当素材がありません。</td></tr>'}</tbody></table></div></div>`;
+      }).join('');
+
+      const topChips = [
+        recipe.craftCount ? `<span class="chip">作成個数 ${recipe.craftCount}</span>` : '',
+        recipe.difficulty ? `<span class="chip">難易度 ${recipe.difficulty}</span>` : '',
+        renderRecipeTraitGroup(recipe),
+        recipe.manifestValue ? `<span class="chip">発現値 ${recipe.manifestValue}</span>` : '',
+        `<span class="chip">選択済み ${selectedCount} / ${requiredCount}</span>`
+      ].filter(Boolean).join('');
+
+      const qualityDisplay = `<div class="quality-display"><div class="quality-label">完成品質</div><div class="quality-value">${averageQuality === null ? '-' : averageQuality.toFixed(1)}</div><div class="quality-actions"><button type="button" id="copySelectedButton" class="craft-button">調合</button></div></div>`;
+
+      els.recipeDetail.innerHTML = `<div class="recipe-top"><div><h1 class="detail-name">${escapeHtml(recipe.name)}${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}${shortage ? '<span class="chip">候補不足あり</span>' : ''}</h1><div class="meta-row">${topChips}</div></div>${qualityDisplay}</div>${recipe.notes ? `<div class="detail-section"><h2>備考</h2><div>${escapeHtml(recipe.notes)}</div></div>` : ''}<div class="detail-section"><h2>素材候補</h2><div class="slot-grid">${slotHtml || '<div class="empty">素材枠がありません。</div>'}</div></div>`;
+
+      document.querySelectorAll('.candidate-row').forEach(row => {
+        if (row.classList.contains('disabled')) return;
+        row.addEventListener('click', () => {
+          const slotKey = row.dataset.slotKey;
+          const materialKey = row.dataset.materialKey;
+          const targetSlot = recipe.slots.find(slot => getSlotKey(recipe, slot) === slotKey);
+          const targetMaterial = getMaterialByKey(materialKey);
+          if (!targetSlot || !targetMaterial) return;
+          if (!canAddMaterial(recipe, targetSlot, targetMaterial)) return;
+          addMaterialToSlot(recipe, targetSlot, materialKey);
+          renderRecipeDetail();
+        });
+      });
+
+      document.querySelectorAll('.chip-remove').forEach(button => {
+        button.addEventListener('click', event => {
+          event.stopPropagation();
+          const slotKey = button.dataset.slotKey;
+          const index = Number(button.dataset.index);
+          const targetSlot = recipe.slots.find(slot => getSlotKey(recipe, slot) === slotKey);
+          if (!targetSlot) return;
+          removeMaterialFromSlot(recipe, targetSlot, index);
+          renderRecipeDetail();
+        });
+      });
+
+      const copyButton = document.getElementById('copySelectedButton');
+      if (copyButton) {
+        copyButton.addEventListener('click', () => {
+          copySelectedMaterials(recipe, copyButton);
+        });
+      }
 
       attachTooltipEvents();
     }
 
-    function renderMeta() {
-      els.countInfo.textContent = `${state.filteredRows.length} 件表示 / 全 ${state.rows.length} 件`;
-      els.sortInfo.textContent = state.sortKey
-        ? `ソート: ${state.sortKey} (${state.sortDir === 'asc' ? '昇順' : '降順'})`
-        : 'ソート: なし';
-    }
+    function applyRecipeSearch() {
+      const q = state.recipeSearch.toLowerCase();
+      state.filteredRecipes = state.recipes.filter(recipe => {
+        if (!q) return true;
+        return recipe.name.toLowerCase().includes(q)
+          || recipe.rank.toLowerCase().includes(q)
+          || recipe.traits.some(trait => trait.toLowerCase().includes(q))
+          || recipe.slots.some(slot => slot.requirement.toLowerCase().includes(q));
+      });
 
-    function populateSelect(selectEl, values) {
-      const current = selectEl.value;
-      selectEl.innerHTML = '<option value="">すべて</option>' +
-        values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
-      if (values.includes(current)) {
-        selectEl.value = current;
-      }
-    }
-
-    function populateFilters(rows) {
-      const categories = [...new Set(rows.flatMap(row => row.categories))].sort((a, b) => a.localeCompare(b, 'ja'));
-      const colors = [...new Set(rows.map(row => row.color).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
-      const ranks = [...new Set(rows.map(row => row.rank).filter(Boolean))].sort((a, b) => rankOrder.indexOf(a) - rankOrder.indexOf(b));
-
-      populateSelect(els.categorySelect, categories);
-      populateSelect(els.colorSelect, colors);
-      populateSelect(els.rankSelect, ranks);
+      state.selectedRecipeIndex = 0;
+      renderRecipeList();
+      renderRecipeDetail();
     }
 
     async function loadJson(url) {
@@ -544,84 +923,38 @@
       return response.json();
     }
 
-    async function loadData() {
+    async function initialize() {
       try {
-        const [itemJson, traitJson] = await Promise.all([
-          loadJson(SHEETS_URL),
+        const [materialJson, recipeJson, traitJson] = await Promise.all([
+          loadJson(MATERIAL_URL),
+          loadJson(RECIPE_URL),
           loadJson(TRAIT_URL)
         ]);
 
-        state.rows = itemJson
-          .map(parseRow)
-          .filter(row => row.name);
-
+        state.materials = materialJson.map(parseMaterial).filter(row => row.name);
+        state.recipes = recipeJson.map(parseRecipe).filter(row => row.name);
         state.traitMap = traitJson
-          .map(parseTraitRow)
+          .map(parseTrait)
           .filter(row => row.name)
           .reduce((acc, row) => {
             acc[row.name] = row;
             return acc;
           }, {});
 
-        populateFilters(state.rows);
-        applyFilters();
+        applyRecipeSearch();
       } catch (error) {
         console.error(error);
-        els.tableBody.innerHTML = `
-          <tr>
-            <td colspan="8" class="error">
-              データ取得に失敗しました。Google スプレッドシートが公開状態か、シート名が正しいか確認してください。
-            </td>
-          </tr>
-        `;
-        els.countInfo.textContent = '読込失敗';
-        els.sortInfo.textContent = '-';
+        els.recipeList.innerHTML = '<div class="error">レシピデータの読込に失敗しました。</div>';
+        els.recipeDetail.innerHTML = '<div class="error">スプレッドシートの公開状態、シート名、列名を確認してください。</div>';
       }
     }
 
-    els.searchInput.addEventListener('input', event => {
-      state.filters.search = event.target.value.trim();
-      applyFilters();
+    els.recipeSearch.addEventListener('input', event => {
+      state.recipeSearch = event.target.value.trim();
+      applyRecipeSearch();
     });
 
-    els.categorySelect.addEventListener('change', event => {
-      state.filters.category = event.target.value;
-      applyFilters();
-    });
-
-    els.colorSelect.addEventListener('change', event => {
-      state.filters.color = event.target.value;
-      applyFilters();
-    });
-
-    els.rankSelect.addEventListener('change', event => {
-      state.filters.rank = event.target.value;
-      applyFilters();
-    });
-
-    els.resetButton.addEventListener('click', () => {
-      state.filters = { search: '', category: '', color: '', rank: '' };
-      els.searchInput.value = '';
-      els.categorySelect.value = '';
-      els.colorSelect.value = '';
-      els.rankSelect.value = '';
-      applyFilters();
-    });
-
-    els.sortButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const key = button.dataset.sort;
-        if (state.sortKey === key) {
-          state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
-        } else {
-          state.sortKey = key;
-          state.sortDir = 'asc';
-        }
-        applyFilters();
-      });
-    });
-
-    loadData();
+    initialize();
   </script>
 </body>
 </html>
