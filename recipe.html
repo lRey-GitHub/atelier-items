@@ -345,9 +345,11 @@
 
     .candidate-list {
       margin-top: 12px;
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: auto;
       border: 1px solid var(--line);
       border-radius: 12px;
+      max-height: 290px;
     }
 
     table {
@@ -365,7 +367,10 @@
     }
 
     th {
+      position: sticky;
+      top: 0;
       background: #fafbff;
+      z-index: 2;
       white-space: nowrap;
     }
 
