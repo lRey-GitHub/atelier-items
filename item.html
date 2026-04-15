@@ -400,7 +400,7 @@
           row.traits.some(tag => tag.toLowerCase().includes(search));
 
         const matchesCategory = !state.filters.category || row.categories.includes(state.filters.category);
-        const matchesColor = !state.filters.color || row.color === state.filters.color;
+        const matchesColor = !state.filters.color || (row.color && row.color.includes(state.filters.color));
         const matchesRank = !state.filters.rank || row.rank === state.filters.rank;
 
         return matchesSearch && matchesCategory && matchesColor && matchesRank;
@@ -528,7 +528,7 @@
 
     function populateFilters(rows) {
       const categories = [...new Set(rows.flatMap(row => row.categories))].sort((a, b) => a.localeCompare(b, 'ja'));
-      const colors = [...new Set(rows.map(row => row.color).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
+      const colors = ['赤', '緑', '白', '黒', '金'];
       const ranks = [...new Set(rows.map(row => row.rank).filter(Boolean))].sort((a, b) => rankOrder.indexOf(a) - rankOrder.indexOf(b));
 
       populateSelect(els.categorySelect, categories);
