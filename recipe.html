@@ -211,6 +211,10 @@
       align-items: flex-start;
     }
 
+    .recipe-top .meta-row + .meta-row {
+      margin-top: 8px;
+    }
+
     .detail-name {
       font-size: 24px;
       font-weight: 800;
@@ -479,10 +483,13 @@
     const RECIPE_SHEET_NAME = 'レシピ';
     const TRAIT_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
     const TRAIT_SHEET_NAME = '特性';
+    const PRODUCT_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
+    const PRODUCT_SHEET_NAME = '調合アイテム';
 
     const MATERIAL_URL = `https://opensheet.elk.sh/${MATERIAL_SHEET_ID}/${encodeURIComponent(MATERIAL_SHEET_NAME)}`;
     const RECIPE_URL = `https://opensheet.elk.sh/${RECIPE_SHEET_ID}/${encodeURIComponent(RECIPE_SHEET_NAME)}`;
     const TRAIT_URL = `https://opensheet.elk.sh/${TRAIT_SHEET_ID}/${encodeURIComponent(TRAIT_SHEET_NAME)}`;
+    const PRODUCT_URL = `https://opensheet.elk.sh/${PRODUCT_SHEET_ID}/${encodeURIComponent(PRODUCT_SHEET_NAME)}`;
 
     const state = {
       materials: [],
@@ -491,7 +498,8 @@
       selectedRecipeIndex: 0,
       recipeSearch: '',
       selectedMaterials: {},
-      traitMap: {}
+      traitMap: {},
+      productMap: {}
     };
 
     const els = {
@@ -588,6 +596,13 @@
         name: normalizeText(row['特性名']),
         category: normalizeText(row['カテゴリ']),
         effect: normalizeText(row['効果'])
+      };
+    }
+
+    function parseProduct(row) {
+      return {
+        name: normalizeText(row['アイテム名']),
+        categories: splitTags(row['カテゴリ'])
       };
     }
 
@@ -817,7 +832,21 @@
         const shortage = recipeHasShortage(recipe);
         const className = ['recipe-item', isActive ? 'active' : '', shortage ? 'recipe-shortage' : ''].filter(Boolean).join(' ');
 
-        return `<div class="${className}" data-index="${index}"><div class="recipe-name">${escapeHtml(recipe.name)}${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}</div><div class="meta-row">${recipe.difficulty ? `<span class="chip">難易度 ${recipe.difficulty}</span>` : ''}${recipe.craftCount ? `<span class="chip">作成数 ${recipe.craftCount}</span>` : ''}${shortage ? '<span class="chip">候補不足</span>' : ''}</div></div>`;
+        const productInfo = state.productMap[recipe.name] || null;
+
+        const productCategoryChips = productInfo?.categories?.length
+          ? `<div class="meta-row">${renderSimpleChips(productInfo.categories)}</div>`
+          : '';
+
+        return `
+          <div class="${className}" data-index="${index}">
+            <div class="recipe-name">
+              ${escapeHtml(recipe.name)}
+              ${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}
+            </div>
+            ${productCategoryChips}
+          </div>
+        `;
       }).join('');
 
       document.querySelectorAll('.recipe-item').forEach(item => {
@@ -860,6 +889,11 @@
         return `<div class="${slotCardClass}"><div class="slot-head"><div><div class="slot-title">素材枠${slot.slotNo}: ${escapeHtml(slot.requirement)}</div><div class="slot-desc">必要数 ${slot.requiredCount} / 判定方式: ${slot.type === 'category' ? 'カテゴリ一致' : 'アイテム名一致'}</div></div><div class="candidate-meta">選択済み ${selectedKeys.length} / ${slot.requiredCount}</div></div><div class="selected-area"><div class="selected-title">選択済み素材</div><div class="meta-row">${renderSelectedChips(recipe, slot)}</div></div><div class="candidate-list"><table><thead><tr><th>アイテム名</th><th>色</th><th>ランク</th><th>品質</th><th>使用数 / 所持数</th><th>カテゴリ</th><th>特性</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="empty">該当素材がありません。</td></tr>'}</tbody></table></div></div>`;
       }).join('');
 
+      const productInfo = state.productMap[recipe.name] || null;
+      const productCategoryChips = productInfo?.categories?.length
+        ? `<div class="meta-row">${renderSimpleChips(productInfo.categories)}</div>`
+        : '';
+
       const topChips = [
         recipe.craftCount ? `<span class="chip">作成個数 ${recipe.craftCount}</span>` : '',
         recipe.difficulty ? `<span class="chip">難易度 ${recipe.difficulty}</span>` : '',
@@ -870,7 +904,32 @@
 
       const qualityDisplay = `<div class="quality-display"><div class="quality-label">完成品質</div><div class="quality-value">${averageQuality === null ? '-' : averageQuality.toFixed(1)}</div><div class="quality-actions"><button type="button" id="copySelectedButton" class="craft-button">調合</button></div></div>`;
 
-      els.recipeDetail.innerHTML = `<div class="recipe-top"><div><h1 class="detail-name">${escapeHtml(recipe.name)}${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}${shortage ? '<span class="chip">候補不足あり</span>' : ''}</h1><div class="meta-row">${topChips}</div></div>${qualityDisplay}</div>${recipe.notes ? `<div class="detail-section"><h2>備考</h2><div>${escapeHtml(recipe.notes)}</div></div>` : ''}<div class="detail-section"><h2>素材候補</h2><div class="slot-grid">${slotHtml || '<div class="empty">素材枠がありません。</div>'}</div></div>`;
+      const headerHtml = `
+        <div class="recipe-top">
+          <div>
+            <h1 class="detail-name">
+              ${escapeHtml(recipe.name)}
+              ${recipe.rank ? `<span class="chip">${escapeHtml(recipe.rank)}</span>` : ''}
+              ${shortage ? '<span class="chip">候補不足あり</span>' : ''}
+            </h1>
+
+            ${productCategoryChips}
+
+            <div class="meta-row">${topChips}</div>
+          </div>
+
+          ${qualityDisplay}
+        </div>
+      `;
+
+      els.recipeDetail.innerHTML = `
+        ${headerHtml}
+        ${recipe.notes ? `<div class="detail-section"><h2>備考</h2><div>${escapeHtml(recipe.notes)}</div></div>` : ''}
+        <div class="detail-section">
+          <h2>素材候補</h2>
+          <div class="slot-grid">${slotHtml || '<div class="empty">素材枠がありません。</div>'}</div>
+        </div>
+      `;
 
       document.querySelectorAll('.candidate-row').forEach(row => {
         if (row.classList.contains('disabled')) return;
@@ -910,12 +969,20 @@
 
     function applyRecipeSearch() {
       const q = state.recipeSearch.toLowerCase();
+
       state.filteredRecipes = state.recipes.filter(recipe => {
         if (!q) return true;
+
+        const productInfo = state.productMap[recipe.name] || null;
+        const categoryMatch = productInfo?.categories?.some(category =>
+          category.toLowerCase().includes(q)
+        );
+
         return recipe.name.toLowerCase().includes(q)
           || recipe.rank.toLowerCase().includes(q)
           || recipe.traits.some(trait => trait.toLowerCase().includes(q))
-          || recipe.slots.some(slot => slot.requirement.toLowerCase().includes(q));
+          || recipe.slots.some(slot => slot.requirement.toLowerCase().includes(q))
+          || Boolean(categoryMatch);
       });
 
       state.selectedRecipeIndex = 0;
@@ -933,10 +1000,11 @@
 
     async function initialize() {
       try {
-        const [materialJson, recipeJson, traitJson] = await Promise.all([
+        const [materialJson, recipeJson, traitJson, productJson] = await Promise.all([
           loadJson(MATERIAL_URL),
           loadJson(RECIPE_URL),
-          loadJson(TRAIT_URL)
+          loadJson(TRAIT_URL),
+          loadJson(PRODUCT_URL)
         ]);
 
         state.materials = materialJson.map(parseMaterial).filter(row => row.name);
@@ -946,6 +1014,14 @@
 
         state.traitMap = traitJson
           .map(parseTrait)
+          .filter(row => row.name)
+          .reduce((acc, row) => {
+            acc[row.name] = row;
+            return acc;
+          }, {});
+
+        state.productMap = productJson
+          .map(parseProduct)
           .filter(row => row.name)
           .reduce((acc, row) => {
             acc[row.name] = row;
