@@ -350,6 +350,8 @@
       border: 1px solid var(--line);
       border-radius: 12px;
       max-height: 290px;
+      position: relative;
+      scrollbar-gutter: stable;
     }
 
     table {
@@ -370,8 +372,9 @@
       position: sticky;
       top: 0;
       background: #fafbff;
-      z-index: 2;
+      z-index: 3;
       white-space: nowrap;
+      box-shadow: 0 1px 0 var(--line);
     }
 
     tr.candidate-row {
@@ -518,6 +521,11 @@
       return /^〈.+〉$/.test(normalizeText(value));
     }
 
+    function isVisibleRecipe(value) {
+      const text = String(value ?? '').trim().toUpperCase();
+      return text === 'TRUE' || text === '1' || text === 'YES';
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll('&', '&amp;')
@@ -570,6 +578,7 @@
         traits: splitTags(row['特性']),
         manifestValue: toNumber(row['発現値']),
         notes: normalizeText(row['備考']),
+        isVisible: isVisibleRecipe(row['表示']),
         slots
       };
     }
@@ -707,15 +716,11 @@
       if (!selected.length) {
         return `${recipe.name} | 素材なし`;
       }
-      
+
       const grouped = {};
       selected.forEach(material => {
         const traitsText = material.traits.length ? material.traits.join(',') : '-';
-        const groupKey = [
-          material.name,
-          material.quality,
-          traitsText
-        ].join('||');
+        const groupKey = [material.name, material.quality, traitsText].join('||');
 
         if (!grouped[groupKey]) {
           grouped[groupKey] = {
@@ -730,9 +735,7 @@
       });
 
       const materialsText = Object.values(grouped)
-        .map(material => {
-          return `${material.name}(品質${material.quality}/特性:${material.traitsText})x${material.count}`;
-        })
+        .map(material => `${material.name}(品質${material.quality}/特性:${material.traitsText})x${material.count}`)
         .join(' | ');
 
       const quality = calculateAverageQuality(recipe);
@@ -937,7 +940,10 @@
         ]);
 
         state.materials = materialJson.map(parseMaterial).filter(row => row.name);
-        state.recipes = recipeJson.map(parseRecipe).filter(row => row.name);
+        state.recipes = recipeJson
+          .map(parseRecipe)
+          .filter(row => row.name && row.isVisible);
+
         state.traitMap = traitJson
           .map(parseTrait)
           .filter(row => row.name)
