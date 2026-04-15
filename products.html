@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>アトリエ卓 調合アイテム一覧</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --line: #d9dce7;
+      --text: #20253a;
+      --muted: #66708a;
+      --accent: #4f46e5;
+      --chip: #f1f3f9;
+      --shadow: 0 8px 24px rgba(18, 28, 45, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 1fr auto;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      align-items: end;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .field input,
+    .field select,
+    .field button {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .field button {
+      cursor: pointer;
+      background: #eef0ff;
+      border-color: #cfd5ff;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      color: var(--muted);
+      font-size: 13px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .list {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .item-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fafbff;  /* ←カード全体を薄色に */
+    }
+
+    .item-main {
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: minmax(180px, 1.3fr) 80px 70px 70px 1.2fr 1.3fr;
+      gap: 12px;
+      align-items: start;
+      border-bottom: 1px solid var(--line);
+      background: #fafbff;   /* ←こっちを薄く */
+    }
+
+    .item-desc {
+      padding: 12px 16px;
+      color: #364056;
+      line-height: 1.65;
+      background: #ffffff;   /* ←こっちを白に */
+    }
+
+    .cell-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .cell-value {
+      font-size: 14px;
+      font-weight: 600;
+      min-height: 24px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: #33405f;
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .trait-chip {
+      cursor: help;
+    }
+
+    .empty,
+    .loading,
+    .error {
+      padding: 20px 16px;
+      color: var(--muted);
+    }
+
+    .error {
+      color: #b42318;
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 1000;
+      max-width: 360px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      pointer-events: none;
+      display: none;
+      white-space: normal;
+    }
+
+    .tooltip-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .tooltip-category {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    @media (max-width: 1000px) {
+      .item-main {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .wrap {
+        padding: 16px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .item-main {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <h1>アトリエ卓 調合アイテム一覧</h1>
+      <div class="sub">
+        調合アイテムシートのうち、「表示」にチェックが入っている行だけを表示します。
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <div class="field">
+          <label for="searchInput">名前・カテゴリ・特性検索</label>
+          <input id="searchInput" type="text" placeholder="例: フラム / 〈爆弾〉 / 炎ダメージⅠ" />
+        </div>
+        <div class="field">
+          <label for="categorySelect">カテゴリ</label>
+          <select id="categorySelect">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="rankSelect">ランク</label>
+          <select id="rankSelect">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button id="resetButton" type="button">絞り込み解除</button>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div id="countInfo">読込中...</div>
+      </div>
+
+      <div id="list" class="list">
+        <div class="loading">データを読み込んでいます...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script>
+    const SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
+    const PRODUCT_SHEET_NAME = '調合アイテム';
+    const TRAIT_SHEET_NAME = '特性';
+
+    const PRODUCT_URL = `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(PRODUCT_SHEET_NAME)}`;
+    const TRAIT_URL = `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(TRAIT_SHEET_NAME)}`;
+
+    const rankOrder = ['', 'E', 'D', 'C', 'B', 'A', 'S'];
+
+    const state = {
+      rows: [],
+      filteredRows: [],
+      filters: {
+        search: '',
+        category: '',
+        rank: ''
+      },
+      traitMap: {}
+    };
+
+    const els = {
+      searchInput: document.getElementById('searchInput'),
+      categorySelect: document.getElementById('categorySelect'),
+      rankSelect: document.getElementById('rankSelect'),
+      resetButton: document.getElementById('resetButton'),
+      countInfo: document.getElementById('countInfo'),
+      list: document.getElementById('list'),
+      tooltip: document.getElementById('tooltip')
+    };
+
+    function normalizeText(value) {
+      return String(value ?? '').trim();
+    }
+
+    function toNumber(value) {
+      const num = Number(String(value ?? '').replace(/,/g, '').trim());
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function splitTags(value) {
+      return normalizeText(value)
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function isVisibleRow(value) {
+      const text = String(value ?? '').trim().toUpperCase();
+      return text === 'TRUE' || text === '1' || text === 'YES';
+    }
+
+    function parseProductRow(row) {
+      return {
+        name: normalizeText(row['アイテム名']),
+        price: toNumber(row['価格']),
+        color: normalizeText(row['色']),
+        rank: normalizeText(row['ランク']).toUpperCase(),
+        categories: splitTags(row['カテゴリ']),
+        traits: splitTags(row['発現特性']),
+        description: normalizeText(row['説明']),
+        isVisible: isVisibleRow(row['表示'])
+      };
+    }
+
+    function parseTraitRow(row) {
+      return {
+        name: normalizeText(row['特性名']),
+        category: normalizeText(row['カテゴリ']),
+        effect: normalizeText(row['効果'])
+      };
+    }
+
+    function renderSimpleChips(values) {
+      if (!values.length) return '';
+      return `<div class="chips">${values.map(v => `<span class="chip">${escapeHtml(v)}</span>`).join('')}</div>`;
+    }
+
+    function renderTraitChips(values) {
+      if (!values.length) return '';
+      return `<div class="chips">${
+        values.map(raw => {
+          const value = raw.trim();
+          const trait = state.traitMap[value] || {};
+          const category = trait.category || '';
+          const effect = trait.effect || '';
+          return `<span
+            class="chip trait-chip"
+            data-trait-name="${escapeHtml(value)}"
+            data-trait-category="${escapeHtml(category)}"
+            data-trait-effect="${escapeHtml(effect)}"
+          >${escapeHtml(value)}</span>`;
+        }).join('')
+      }</div>`;
+    }
+
+    function showTooltip(event) {
+      const target = event.currentTarget;
+      const name = target.dataset.traitName || '';
+      const category = target.dataset.traitCategory || '';
+      const effect = target.dataset.traitEffect || '説明がありません。';
+
+      els.tooltip.innerHTML = `
+        <div class="tooltip-title">${escapeHtml(name)}</div>
+        ${category ? `<div class="tooltip-category">カテゴリ: ${escapeHtml(category)}</div>` : ''}
+        <div>${escapeHtml(effect)}</div>
+      `;
+      els.tooltip.style.display = 'block';
+      moveTooltip(event);
+    }
+
+    function moveTooltip(event) {
+      if (els.tooltip.style.display !== 'block') return;
+
+      const offset = 14;
+      const rect = els.tooltip.getBoundingClientRect();
+      let left = event.clientX + offset;
+      let top = event.clientY + offset;
+
+      if (left + rect.width > window.innerWidth - 12) {
+        left = window.innerWidth - rect.width - 12;
+      }
+      if (top + rect.height > window.innerHeight - 12) {
+        top = event.clientY - rect.height - offset;
+      }
+      if (left < 12) left = 12;
+      if (top < 12) top = 12;
+
+      els.tooltip.style.left = `${left}px`;
+      els.tooltip.style.top = `${top}px`;
+    }
+
+    function hideTooltip() {
+      els.tooltip.style.display = 'none';
+    }
+
+    function attachTooltipEvents() {
+      document.querySelectorAll('.trait-chip').forEach(chip => {
+        chip.addEventListener('mouseenter', showTooltip);
+        chip.addEventListener('mousemove', moveTooltip);
+        chip.addEventListener('mouseleave', hideTooltip);
+      });
+    }
+
+    function populateSelect(selectEl, values) {
+      const current = selectEl.value;
+      selectEl.innerHTML = '<option value="">すべて</option>' +
+        values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+      if (values.includes(current)) {
+        selectEl.value = current;
+      }
+    }
+
+    function populateFilters(rows) {
+      const categories = [...new Set(rows.flatMap(row => row.categories))].sort((a, b) => a.localeCompare(b, 'ja'));
+      const ranks = [...new Set(rows.map(row => row.rank).filter(Boolean))].sort((a, b) => rankOrder.indexOf(a) - rankOrder.indexOf(b));
+
+      populateSelect(els.categorySelect, categories);
+      populateSelect(els.rankSelect, ranks);
+    }
+
+    function applyFilters() {
+      const search = state.filters.search.toLowerCase();
+
+      state.filteredRows = state.rows.filter(row => {
+        const matchesSearch = !search
+          || row.name.toLowerCase().includes(search)
+          || row.categories.some(category => category.toLowerCase().includes(search))
+          || row.traits.some(trait => trait.toLowerCase().includes(search))
+          || row.description.toLowerCase().includes(search);
+
+        const matchesCategory = !state.filters.category || row.categories.includes(state.filters.category);
+        const matchesRank = !state.filters.rank || row.rank === state.filters.rank;
+
+        return matchesSearch && matchesCategory && matchesRank;
+      });
+
+      renderList();
+      renderMeta();
+    }
+
+    function renderList() {
+      if (!state.filteredRows.length) {
+        els.list.innerHTML = '<div class="empty">該当するデータがありません。</div>';
+        return;
+      }
+
+      els.list.innerHTML = state.filteredRows.map(row => `
+        <div class="item-card">
+          <div class="item-main">
+            <div>
+              <div class="cell-label">アイテム名</div>
+              <div class="cell-value">${escapeHtml(row.name)}</div>
+            </div>
+            <div>
+              <div class="cell-label">価格</div>
+              <div class="cell-value">${row.price}</div>
+            </div>
+            <div>
+              <div class="cell-label">色</div>
+              <div class="cell-value">${escapeHtml(row.color || '-')}</div>
+            </div>
+            <div>
+              <div class="cell-label">ランク</div>
+              <div class="cell-value">${escapeHtml(row.rank || '-')}</div>
+            </div>
+            <div>
+              <div class="cell-label">カテゴリ</div>
+              <div>${renderSimpleChips(row.categories)}</div>
+            </div>
+            <div>
+              <div class="cell-label">発現特性</div>
+              <div>${renderTraitChips(row.traits)}</div>
+            </div>
+          </div>
+          <div class="item-desc">${escapeHtml(row.description || '説明なし')}</div>
+        </div>
+      `).join('');
+
+      attachTooltipEvents();
+    }
+
+    function renderMeta() {
+      els.countInfo.textContent = `${state.filteredRows.length} 件表示 / 全 ${state.rows.length} 件`;
+    }
+
+    async function loadJson(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function initialize() {
+      try {
+        const [productJson, traitJson] = await Promise.all([
+          loadJson(PRODUCT_URL),
+          loadJson(TRAIT_URL)
+        ]);
+
+        state.rows = productJson
+          .map(parseProductRow)
+          .filter(row => row.name && row.isVisible);
+
+        state.traitMap = traitJson
+          .map(parseTraitRow)
+          .filter(row => row.name)
+          .reduce((acc, row) => {
+            acc[row.name] = row;
+            return acc;
+          }, {});
+
+        populateFilters(state.rows);
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        els.list.innerHTML = '<div class="error">調合アイテムデータの読込に失敗しました。</div>';
+        els.countInfo.textContent = '読込失敗';
+      }
+    }
+
+    els.searchInput.addEventListener('input', event => {
+      state.filters.search = event.target.value.trim();
+      applyFilters();
+    });
+
+    els.categorySelect.addEventListener('change', event => {
+      state.filters.category = event.target.value;
+      applyFilters();
+    });
+
+    els.rankSelect.addEventListener('change', event => {
+      state.filters.rank = event.target.value;
+      applyFilters();
+    });
+
+    els.resetButton.addEventListener('click', () => {
+      state.filters = { search: '', category: '', rank: '' };
+      els.searchInput.value = '';
+      els.categorySelect.value = '';
+      els.rankSelect.value = '';
+      applyFilters();
+    });
+
+    initialize();
+  </script>
+</body>
+</html>
