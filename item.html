@@ -273,7 +273,7 @@
           <thead>
             <tr>
               <th><button data-sort="name">アイテム名</button></th>
-              <th><button data-sort="price">価格</button></th>
+              <th><button data-sort="price">売値</button></th>
               <th><button data-sort="color">色</button></th>
               <th><button data-sort="rank">ランク</button></th>
               <th>カテゴリ</th>
@@ -359,7 +359,7 @@
     function parseRow(row) {
       return {
         name: normalizeText(row['アイテム名']),
-        price: toNumber(row['価格']),
+        price: toNumber(row['売値']),
         color: normalizeText(row['色']),
         rank: normalizeText(row['ランク']).toUpperCase(),
         categories: splitTags(row['カテゴリ']),
