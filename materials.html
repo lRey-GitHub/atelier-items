@@ -359,7 +359,7 @@
     function parseMaterialItemRow(row) {
       return {
         name: normalizeText(row['アイテム名']),
-        price: toNumber(row['価格']),
+        price: toNumber(row['売値']),
         color: normalizeText(row['色']),
         rank: normalizeText(row['ランク']).toUpperCase(),
         categories: splitTags(row['カテゴリ']),
@@ -504,7 +504,7 @@
               <div class="cell-value">${escapeHtml(row.name)}</div>
             </div>
             <div>
-              <div class="cell-label">価格</div>
+              <div class="cell-label">売値</div>
               <div class="cell-value">${row.price}</div>
             </div>
             <div>
