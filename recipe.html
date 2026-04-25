@@ -431,6 +431,15 @@
       color: var(--muted);
     }
 
+    .selected-empty {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1;
+    }
+
     .error { color: var(--danger); }
 
     @media (max-width: 1000px) {
@@ -715,7 +724,7 @@
     function renderSelectedChips(recipe, slot) {
       const selectedKeys = getSelectedMaterials(recipe, slot);
       if (!selectedKeys.length) {
-        return '<div class="empty">まだ選択されていません。</div>';
+        return '<span class="selected-empty">まだ選択されていません。</span>';
       }
 
       return selectedKeys.map((key, index) => {
@@ -752,10 +761,21 @@
       const materialsText = Object.values(grouped)
         .map(material => `${material.name}(品質${material.quality}/特性:${material.traitsText})x${material.count}`)
         .join(' | ');
+      
+      const traitText = recipe.traits.length
+        ? recipe.traits.join(',')
+        : '-';
+
+      const manifestText = recipe.traits.length
+        ? `発現特性:${recipe.traits.join(',')}(発現値:${recipe.manifestValue || 0})`
+        : '';
 
       const quality = calculateAverageQuality(recipe);
 
-      return `${recipe.name}(難易度:${recipe.difficulty || '-'}) | 完成品質:${quality === null ? '-' : quality.toFixed(1)} | ${materialsText}`;
+      return `${recipe.name}(難易度:${recipe.difficulty || '-'})`
+        + (manifestText ? ` | ${manifestText}` : '')
+        + ` | 完成品質:${quality === null ? '-' : quality.toFixed(1)}`
+        + ` | ${materialsText}`;
     }
 
     async function copySelectedMaterials(recipe, buttonEl) {
