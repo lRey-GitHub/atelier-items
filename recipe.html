@@ -247,6 +247,27 @@
       margin-top: 10px;
       display: flex;
       justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .craft-count-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .craft-count-input {
+      width: 72px;
+      min-height: 34px;
+      padding: 0 8px;
+      text-align: right;
+      border-radius: 10px;
+      font-size: 13px;
     }
 
     .craft-button {
@@ -505,6 +526,7 @@
       selectedRecipeIndex: 0,
       recipeSearch: '',
       selectedMaterials: {},
+      craftMultiplier: 1,
       traitMap: {},
       productMap: {}
     };
@@ -640,6 +662,15 @@
       return state.selectedMaterials[getSlotKey(recipe, slot)] || [];
     }
 
+    function getCraftMultiplier() {
+      const value = Number(state.craftMultiplier);
+      return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+    }
+
+    function getRequiredCountForSlot(slot) {
+      return slot.requiredCount * getCraftMultiplier();
+    }
+
     function getUsedCountForMaterial(recipe, materialKey) {
       return recipe.slots.reduce((sum, slot) => {
         return sum + getSelectedMaterials(recipe, slot).filter(key => key === materialKey).length;
@@ -648,7 +679,7 @@
 
     function canAddMaterial(recipe, slot, material) {
       const selected = getSelectedMaterials(recipe, slot);
-      if (selected.length >= slot.requiredCount) {
+      if (selected.length >= getRequiredCountForSlot(slot)) {
         return false;
       }
       const usedCount = getUsedCountForMaterial(recipe, material.key);
@@ -690,7 +721,7 @@
     }
 
     function getRequiredCount(recipe) {
-      return recipe.slots.reduce((sum, slot) => sum + slot.requiredCount, 0);
+      return recipe.slots.reduce((sum, slot) => sum + getRequiredCountForSlot(slot), 0);
     }
 
     function getAvailableCountForSlot(slot) {
@@ -698,7 +729,7 @@
     }
 
     function slotHasShortage(slot) {
-      return getAvailableCountForSlot(slot) < slot.requiredCount;
+      return getAvailableCountForSlot(slot) < getRequiredCountForSlot(slot);
     }
 
     function recipeHasShortage(recipe) {
@@ -778,7 +809,12 @@
 
       const quality = calculateAverageQuality(recipe);
 
+      const multiplier = getCraftMultiplier();
+      const craftedCount = (recipe.craftCount || 1) * multiplier;
+
       return `${recipe.name}(難易度:${recipe.difficulty || '-'})`
+        + ` | 作成個数:${craftedCount}`
+        + (multiplier > 1 ? `(${multiplier}回分)` : '')
         + (manifestText ? ` | ${manifestText}` : '')
         + ` | 完成品質:${quality === null ? '-' : quality.toFixed(1)}`
         + ` | ${materialsText}`;
@@ -900,7 +936,8 @@
         const candidates = getCandidates(slot);
         const slotShortage = slotHasShortage(slot);
         const selectedKeys = getSelectedMaterials(recipe, slot);
-        const slotComplete = selectedKeys.length >= slot.requiredCount;
+        const requiredCountForSlot = getRequiredCountForSlot(slot);
+        const slotComplete = selectedKeys.length >= requiredCountForSlot;
 
         const rows = candidates.map(candidate => {
           const disabled = !canAddMaterial(recipe, slot, candidate);
@@ -912,7 +949,7 @@
 
         const slotCardClass = ['slot-card', slotShortage ? 'slot-shortage' : '', slotComplete ? 'slot-complete' : ''].filter(Boolean).join(' ');
 
-        return `<div class="${slotCardClass}"><div class="slot-head"><div><div class="slot-title">素材枠${slot.slotNo}: ${escapeHtml(slot.requirement)}</div><div class="slot-desc">必要数 ${slot.requiredCount} / 判定方式: ${slot.type === 'category' ? 'カテゴリ一致' : 'アイテム名一致'}</div></div><div class="candidate-meta">選択済み ${selectedKeys.length} / ${slot.requiredCount}</div></div><div class="selected-area"><div class="selected-title">選択済み素材</div><div class="meta-row">${renderSelectedChips(recipe, slot)}</div></div><div class="candidate-list"><table><thead><tr><th>アイテム名</th><th>色</th><th>ランク</th><th>品質</th><th>使用数 / 所持数</th><th>カテゴリ</th><th>特性</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="empty">該当素材がありません。</td></tr>'}</tbody></table></div></div>`;
+        return `<div class="${slotCardClass}"><div class="slot-head"><div><div class="slot-title">素材枠${slot.slotNo}: ${escapeHtml(slot.requirement)}</div><div class="slot-desc">必要数 ${requiredCountForSlot}${getCraftMultiplier() > 1 ? `（基本 ${slot.requiredCount} × ${getCraftMultiplier()}回分）` : ''} / 判定方式: ${slot.type === 'category' ? 'カテゴリ一致' : 'アイテム名一致'}</div></div><div class="candidate-meta">選択済み ${selectedKeys.length} / ${requiredCountForSlot}</div></div><div class="selected-area"><div class="selected-title">選択済み素材</div><div class="meta-row">${renderSelectedChips(recipe, slot)}</div></div><div class="candidate-list"><table><thead><tr><th>アイテム名</th><th>色</th><th>ランク</th><th>品質</th><th>使用数 / 所持数</th><th>カテゴリ</th><th>特性</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="empty">該当素材がありません。</td></tr>'}</tbody></table></div></div>`;
       }).join('');
 
       const productInfo = state.productMap[recipe.name] || null;
@@ -928,7 +965,7 @@
         `<span class="chip">選択済み ${selectedCount} / ${requiredCount}</span>`
       ].filter(Boolean).join('');
 
-      const qualityDisplay = `<div class="quality-display"><div class="quality-label">完成品質</div><div class="quality-value">${averageQuality === null ? '-' : averageQuality.toFixed(1)}</div><div class="quality-actions"><button type="button" id="copySelectedButton" class="craft-button">調合</button></div></div>`;
+      const qualityDisplay = `<div class="quality-display"><div class="quality-label">完成品質</div><div class="quality-value">${averageQuality === null ? '-' : averageQuality.toFixed(1)}</div><div class="quality-actions"><label class="craft-count-control" for="craftMultiplierInput">作成回数<input id="craftMultiplierInput" class="craft-count-input" type="number" min="1" step="1" value="${getCraftMultiplier()}"></label><button type="button" id="copySelectedButton" class="craft-button">調合</button></div></div>`;
 
       const headerHtml = `
         <div class="recipe-top">
@@ -987,6 +1024,17 @@
       if (copyButton) {
         copyButton.addEventListener('click', () => {
           copySelectedMaterials(recipe, copyButton);
+        });
+      }
+
+      const craftMultiplierInput = document.getElementById('craftMultiplierInput');
+      if (craftMultiplierInput) {
+        craftMultiplierInput.addEventListener('input', event => {
+          const value = Math.max(1, Math.floor(Number(event.target.value) || 1));
+          state.craftMultiplier = value;
+          event.target.value = value;
+          renderRecipeList();
+          renderRecipeDetail();
         });
       }
 
