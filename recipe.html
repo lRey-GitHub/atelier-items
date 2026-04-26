@@ -495,10 +495,8 @@
     const PRODUCT_SHEET_ID = '1zf4G3sIrFntv7DVcKhf0aZkQXo-ayiRuWFL9L2yfCr4';
     const PRODUCT_SHEET_NAME = '調合アイテム';
 
-    const MATERIAL_URL = `https://opensheet.elk.sh/${MATERIAL_SHEET_ID}/${encodeURIComponent(MATERIAL_SHEET_NAME)}`;
-    const RECIPE_URL = `https://opensheet.elk.sh/${RECIPE_SHEET_ID}/${encodeURIComponent(RECIPE_SHEET_NAME)}`;
-    const TRAIT_URL = `https://opensheet.elk.sh/${TRAIT_SHEET_ID}/${encodeURIComponent(TRAIT_SHEET_NAME)}`;
-    const PRODUCT_URL = `https://opensheet.elk.sh/${PRODUCT_SHEET_ID}/${encodeURIComponent(PRODUCT_SHEET_NAME)}`;
+    // ローカルHTML(file://)でもCORSに引っかからないように、Google Visualization API の JSONP で読み込みます。
+    // URLに毎回違う _fresh を付けることで、リロードごとに新しく取得します。
 
     const state = {
       materials: [],
@@ -1010,21 +1008,76 @@
       renderRecipeDetail();
     }
 
-    async function loadJson(url) {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return response.json();
+    function gvizTableToRows(table) {
+      const headers = (table.cols || []).map((col, index) => {
+        return normalizeText(col.label || col.id || `列${index + 1}`);
+      });
+
+      return (table.rows || []).map(row => {
+        const obj = {};
+        (row.c || []).forEach((cell, index) => {
+          const key = headers[index];
+          if (!key) return;
+          obj[key] = cell ? (cell.f ?? cell.v ?? '') : '';
+        });
+        return obj;
+      });
+    }
+
+    function loadSheetRows(sheetId, sheetName) {
+      return new Promise((resolve, reject) => {
+        const callbackName = `__sheetCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const script = document.createElement('script');
+        const timeoutMs = 15000;
+
+        const cleanup = () => {
+          delete window[callbackName];
+          script.remove();
+        };
+
+        const timeoutId = window.setTimeout(() => {
+          cleanup();
+          reject(new Error(`${sheetName} の読込がタイムアウトしました。`));
+        }, timeoutMs);
+
+        window[callbackName] = data => {
+          window.clearTimeout(timeoutId);
+          cleanup();
+
+          if (data?.status === 'error') {
+            const message = data.errors?.map(error => error.detailed_message || error.message).filter(Boolean).join(' / ') || '不明なエラー';
+            reject(new Error(`${sheetName} の読込に失敗しました。${message}`));
+            return;
+          }
+
+          resolve(gvizTableToRows(data.table || { cols: [], rows: [] }));
+        };
+
+        const params = new URLSearchParams({
+          tqx: `responseHandler:${callbackName}`,
+          sheet: sheetName,
+          tq: 'select *',
+          _fresh: `${Date.now()}_${Math.random().toString(36).slice(2)}`
+        });
+
+        script.onerror = () => {
+          window.clearTimeout(timeoutId);
+          cleanup();
+          reject(new Error(`${sheetName} の読込に失敗しました。スプレッドシートの公開状態を確認してください。`));
+        };
+
+        script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?${params.toString()}`;
+        document.head.appendChild(script);
+      });
     }
 
     async function initialize() {
       try {
         const [materialJson, recipeJson, traitJson, productJson] = await Promise.all([
-          loadJson(MATERIAL_URL),
-          loadJson(RECIPE_URL),
-          loadJson(TRAIT_URL),
-          loadJson(PRODUCT_URL)
+          loadSheetRows(MATERIAL_SHEET_ID, MATERIAL_SHEET_NAME),
+          loadSheetRows(RECIPE_SHEET_ID, RECIPE_SHEET_NAME),
+          loadSheetRows(TRAIT_SHEET_ID, TRAIT_SHEET_NAME),
+          loadSheetRows(PRODUCT_SHEET_ID, PRODUCT_SHEET_NAME)
         ]);
 
         state.materials = materialJson.map(parseMaterial).filter(row => row.name);
@@ -1052,7 +1105,7 @@
       } catch (error) {
         console.error(error);
         els.recipeList.innerHTML = '<div class="error">レシピデータの読込に失敗しました。</div>';
-        els.recipeDetail.innerHTML = '<div class="error">スプレッドシートの公開状態、シート名、列名を確認してください。</div>';
+        els.recipeDetail.innerHTML = `<div class="error">スプレッドシートの公開状態、シート名、列名を確認してください。<br>詳細: ${escapeHtml(error.message || error)}</div>`;
       }
     }
 
