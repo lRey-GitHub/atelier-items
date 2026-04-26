@@ -1016,23 +1016,44 @@
       renderRecipeDetail();
     }
 
-    function gvizTableToRows(table) {
-      const headers = (table.cols || []).map((col, index) => {
+    function getGvizCellValue(cell) {
+      return cell ? (cell.f ?? cell.v ?? '') : '';
+    }
+
+    function gvizTableToRows(table, expectedHeaders = []) {
+      const rows = table.rows || [];
+      let headers = (table.cols || []).map((col, index) => {
         return normalizeText(col.label || col.id || `列${index + 1}`);
       });
 
-      return (table.rows || []).map(row => {
+      let dataRows = rows;
+      const hasExpectedHeader = expectedHeaders.some(header => headers.includes(header));
+
+      // Google Visualization API は、環境や推測結果によって
+      // 1行目を列名として扱わず、A/B/C列として返すことがある。
+      // その場合は1行目をヘッダーとして読み直す。
+      if (!hasExpectedHeader && rows.length) {
+        const firstRowHeaders = (rows[0].c || []).map(cell => normalizeText(getGvizCellValue(cell)));
+        const firstRowHasExpectedHeader = expectedHeaders.some(header => firstRowHeaders.includes(header));
+
+        if (firstRowHasExpectedHeader) {
+          headers = firstRowHeaders;
+          dataRows = rows.slice(1);
+        }
+      }
+
+      return dataRows.map(row => {
         const obj = {};
         (row.c || []).forEach((cell, index) => {
           const key = headers[index];
           if (!key) return;
-          obj[key] = cell ? (cell.f ?? cell.v ?? '') : '';
+          obj[key] = getGvizCellValue(cell);
         });
         return obj;
       });
     }
 
-    function loadSheetRows(sheetId, sheetName) {
+    function loadSheetRows(sheetId, sheetName, expectedHeaders = []) {
       return new Promise((resolve, reject) => {
         const callbackName = `__sheetCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const script = document.createElement('script');
@@ -1058,13 +1079,14 @@
             return;
           }
 
-          resolve(gvizTableToRows(data.table || { cols: [], rows: [] }));
+          resolve(gvizTableToRows(data.table || { cols: [], rows: [] }, expectedHeaders));
         };
 
         const params = new URLSearchParams({
           tqx: `responseHandler:${callbackName}`,
           sheet: sheetName,
           tq: 'select *',
+          headers: '1',
           _fresh: `${Date.now()}_${Math.random().toString(36).slice(2)}`
         });
 
@@ -1082,10 +1104,10 @@
     async function initialize() {
       try {
         const [materialJson, recipeJson, traitJson, productJson] = await Promise.all([
-          loadSheetRows(MATERIAL_SHEET_ID, MATERIAL_SHEET_NAME),
-          loadSheetRows(RECIPE_SHEET_ID, RECIPE_SHEET_NAME),
-          loadSheetRows(TRAIT_SHEET_ID, TRAIT_SHEET_NAME),
-          loadSheetRows(PRODUCT_SHEET_ID, PRODUCT_SHEET_NAME)
+          loadSheetRows(MATERIAL_SHEET_ID, MATERIAL_SHEET_NAME, ['アイテム名', 'カテゴリ', '品質', '特性']),
+          loadSheetRows(RECIPE_SHEET_ID, RECIPE_SHEET_NAME, ['アイテム名', '素材1', '表示']),
+          loadSheetRows(TRAIT_SHEET_ID, TRAIT_SHEET_NAME, ['特性名', 'カテゴリ', '効果']),
+          loadSheetRows(PRODUCT_SHEET_ID, PRODUCT_SHEET_NAME, ['アイテム名', 'カテゴリ'])
         ]);
 
         state.materials = materialJson.map(parseMaterial).filter(row => row.name);
